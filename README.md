@@ -9,12 +9,21 @@ This is an experimental personal project created with the assistance of AI. It i
 - Import the account's owned games through the Steam Web API.
 - Optionally include games shared through Steam Families using a temporary Steam session token.
 - Import Steam collections from the local Steam client files.
-- Filter the library by name, source, playtime, and collection; sort it and pick a random game from the filtered results.
+- Filter the library by name, source, playtime, collection, and HowLongToBeat main story hours; sort it and pick a random game from the filtered results.
+- Sort the library by clicking any visible grid column header, and export the current grid to an Excel workbook (`.xlsx`).
 - Look up HowLongToBeat results for one game or process the library in a resumable batch.
 - Cache library, collection, column preference, and HowLongToBeat data locally so they are retained between runs.
 - Store Steam and IsThereAnyDeal credentials protected with Windows DPAPI for the current Windows user.
 
 Wishlist import and price tracking through IsThereAnyDeal are not implemented yet. The optional IsThereAnyDeal API key and country settings are present in the Settings window for future development; the application does not currently use them.
+
+## Library filters, sorting, and export
+
+The Library page has optional **HLTB min hours** and **HLTB max hours** fields. These limits use the HowLongToBeat **main story** estimate shown in the grid. Leave either field empty to omit that limit. Decimal values can use a comma or a period. When either limit is set, games without a main story estimate are excluded.
+
+Click a visible column header to sort the grid in ascending order; click it again to reverse the order. The existing sort selector is also available for common playtime, last played, and HowLongToBeat sorts.
+
+Choose **Export to Excel** to save the grid as an `.xlsx` workbook. The export follows the current filter and sort order and includes only visible columns. HowLongToBeat main story hours are stored as numeric values in Excel; other columns keep their displayed values.
 
 ## Requirements
 

@@ -1,6 +1,8 @@
 using SteamManager.Models;
 using SteamManager.Services;
+using System.IO.Compression;
 using System.Globalization;
+using System.Xml;
 using System.Text;
 using System.Text.Json;
 
@@ -8,6 +10,9 @@ namespace SteamManager
 {
     public partial class MainForm : Form
     {
+        private const string SpreadsheetNamespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        private const string PackageRelationshipsNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
+        private const string ContentTypesNamespace = "http://schemas.openxmlformats.org/package/2006/content-types";
         private readonly SettingsStore settingsStore = new();
         private readonly SteamApiClient steamApiClient = new();
         private readonly SteamLibraryStore steamLibraryStore = new();
@@ -29,6 +34,9 @@ namespace SteamManager
         private DateTime? lastSyncTime;
         private string syncNotice = string.Empty;
         private bool loadedLibraryFromCache;
+        private string? gridSortColumnName;
+        private bool gridSortAscending;
+        private bool isUpdatingSortCombo;
 
         public MainForm()
         {
@@ -298,6 +306,7 @@ namespace SteamManager
             pageTitleLabel.Text = page;
             syncButton.Visible = page == "Library";
             columnOptionsButton.Visible = page == "Library";
+            exportButton.Visible = page == "Library";
 
             if (page == "Library")
             {
@@ -318,11 +327,227 @@ namespace SteamManager
         private void wishlistButton_Click(object? sender, EventArgs e) => ShowPage("Wishlist");
         private void pricesButton_Click(object? sender, EventArgs e) => ShowPage("Prices");
 
-        private void libraryFilters_Changed(object? sender, EventArgs e) => ApplyLibraryFilters();
+        private void libraryFilters_Changed(object? sender, EventArgs e)
+        {
+            if (sender == sortComboBox && !isUpdatingSortCombo)
+                gridSortColumnName = null;
+            ApplyLibraryFilters();
+        }
+
+        private void gamesGrid_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.ColumnIndex < 0 || e.ColumnIndex >= gamesGrid.Columns.Count)
+                return;
+
+            var columnName = gamesGrid.Columns[e.ColumnIndex].Name;
+            if (gridSortColumnName == columnName)
+                gridSortAscending = !gridSortAscending;
+            else
+            {
+                gridSortColumnName = columnName;
+                gridSortAscending = true;
+            }
+
+            if (sortComboBox.SelectedIndex != 0)
+            {
+                isUpdatingSortCombo = true;
+                sortComboBox.SelectedIndex = 0;
+                isUpdatingSortCombo = false;
+            }
+
+            ApplyLibraryFilters();
+        }
 
         private void columnOptionsButton_Click(object? sender, EventArgs e)
         {
             columnMenu.Show(columnOptionsButton, new Point(0, columnOptionsButton.Height));
+        }
+
+        private void exportButton_Click(object? sender, EventArgs e)
+        {
+            var visibleColumns = gamesGrid.Columns.Cast<DataGridViewColumn>()
+                .Where(column => column.Visible)
+                .OrderBy(column => column.DisplayIndex)
+                .ToList();
+            if (visibleColumns.Count == 0)
+            {
+                MessageBox.Show(this, "Show at least one grid column before exporting.", "Nothing to export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dialog = new SaveFileDialog
+            {
+                AddExtension = true,
+                DefaultExt = "xlsx",
+                FileName = $"SteamLibrary-{DateTime.Now:yyyyMMdd-HHmm}.xlsx",
+                Filter = "Excel workbook (*.xlsx)|*.xlsx",
+                OverwritePrompt = true
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                ExportCurrentGridToExcel(dialog.FileName, visibleColumns);
+                statusLabel.Text = $"Exported {gamesGrid.Rows.Count:N0} games to {Path.GetFileName(dialog.FileName)}.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"The Excel file could not be created.\n\nDetails: {ex.Message}", "Export failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void ExportCurrentGridToExcel(string path, IReadOnlyList<DataGridViewColumn> columns)
+        {
+            using var file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+            using var archive = new ZipArchive(file, ZipArchiveMode.Create);
+            WriteExcelPart(archive, "[Content_Types].xml", writer =>
+            {
+                writer.WriteStartElement("Types", ContentTypesNamespace);
+                writer.WriteStartElement("Default", ContentTypesNamespace);
+                writer.WriteAttributeString("Extension", "rels");
+                writer.WriteAttributeString("ContentType", "application/vnd.openxmlformats-package.relationships+xml");
+                writer.WriteEndElement();
+                writer.WriteStartElement("Default", ContentTypesNamespace);
+                writer.WriteAttributeString("Extension", "xml");
+                writer.WriteAttributeString("ContentType", "application/xml");
+                writer.WriteEndElement();
+                writer.WriteStartElement("Override", ContentTypesNamespace);
+                writer.WriteAttributeString("PartName", "/xl/workbook.xml");
+                writer.WriteAttributeString("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml");
+                writer.WriteEndElement();
+                writer.WriteStartElement("Override", ContentTypesNamespace);
+                writer.WriteAttributeString("PartName", "/xl/worksheets/sheet1.xml");
+                writer.WriteAttributeString("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            });
+            WriteExcelPart(archive, "_rels/.rels", writer =>
+            {
+                writer.WriteStartElement("Relationships", PackageRelationshipsNamespace);
+                writer.WriteStartElement("Relationship", PackageRelationshipsNamespace);
+                writer.WriteAttributeString("Id", "rId1");
+                writer.WriteAttributeString("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument");
+                writer.WriteAttributeString("Target", "xl/workbook.xml");
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            });
+            WriteExcelPart(archive, "xl/workbook.xml", writer =>
+            {
+                writer.WriteStartElement("workbook", SpreadsheetNamespace);
+                writer.WriteAttributeString("xmlns", "r", null, "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+                writer.WriteStartElement("sheets", SpreadsheetNamespace);
+                writer.WriteStartElement("sheet", SpreadsheetNamespace);
+                writer.WriteAttributeString("name", "Steam Library");
+                writer.WriteAttributeString("sheetId", "1");
+                writer.WriteAttributeString("r", "id", "http://schemas.openxmlformats.org/officeDocument/2006/relationships", "rId1");
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            });
+            WriteExcelPart(archive, "xl/_rels/workbook.xml.rels", writer =>
+            {
+                writer.WriteStartElement("Relationships", PackageRelationshipsNamespace);
+                writer.WriteStartElement("Relationship", PackageRelationshipsNamespace);
+                writer.WriteAttributeString("Id", "rId1");
+                writer.WriteAttributeString("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet");
+                writer.WriteAttributeString("Target", "worksheets/sheet1.xml");
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            });
+            WriteExcelPart(archive, "xl/worksheets/sheet1.xml", writer =>
+            {
+                writer.WriteStartElement("worksheet", SpreadsheetNamespace);
+                writer.WriteStartElement("sheetData", SpreadsheetNamespace);
+                WriteExcelRow(writer, 1, columns.Select(column => (object?)column.HeaderText).ToList());
+
+                var rowNumber = 2;
+                foreach (DataGridViewRow row in gamesGrid.Rows)
+                {
+                    if (row.IsNewRow || row.DataBoundItem is not SteamGame game)
+                        continue;
+                    var values = columns.Select(column => GetExcelExportValue(column, game, row)).ToList();
+                    WriteExcelRow(writer, rowNumber++, values);
+                }
+
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            });
+        }
+
+        private static void WriteExcelPart(ZipArchive archive, string partName, Action<XmlWriter> writeContent)
+        {
+            var entry = archive.CreateEntry(partName, CompressionLevel.Optimal);
+            using var stream = entry.Open();
+            using var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false), CloseOutput = false });
+            writer.WriteStartDocument();
+            writeContent(writer);
+            writer.WriteEndDocument();
+        }
+
+        private static object? GetExcelExportValue(DataGridViewColumn column, SteamGame game, DataGridViewRow row)
+        {
+            return column.DataPropertyName switch
+            {
+                nameof(SteamGame.HltbMainDisplay) => game.HltbMainHours,
+                nameof(SteamGame.Name) => game.Name,
+                nameof(SteamGame.SourceDisplay) => game.SourceDisplay,
+                nameof(SteamGame.PlaytimeDisplay) => game.PlaytimeDisplay,
+                nameof(SteamGame.LastPlayedDisplay) => game.LastPlayedDisplay,
+                _ => row.Cells[column.Index].FormattedValue?.ToString()
+            };
+        }
+
+        private static void WriteExcelRow(XmlWriter writer, int rowNumber, IReadOnlyList<object?> values)
+        {
+            writer.WriteStartElement("row", SpreadsheetNamespace);
+            writer.WriteAttributeString("r", rowNumber.ToString(CultureInfo.InvariantCulture));
+            for (var columnIndex = 0; columnIndex < values.Count; columnIndex++)
+            {
+                var value = values[columnIndex];
+                if (value is null)
+                    continue;
+
+                writer.WriteStartElement("c", SpreadsheetNamespace);
+                writer.WriteAttributeString("r", ExcelColumnName(columnIndex + 1) + rowNumber.ToString(CultureInfo.InvariantCulture));
+                if (value is string text)
+                {
+                    writer.WriteAttributeString("t", "inlineStr");
+                    writer.WriteStartElement("is", SpreadsheetNamespace);
+                    writer.WriteStartElement("t", SpreadsheetNamespace);
+                    writer.WriteAttributeString("xml", "space", "http://www.w3.org/XML/1998/namespace", "preserve");
+                    writer.WriteString(text);
+                    writer.WriteEndElement();
+                    writer.WriteEndElement();
+                }
+                else if (value is IFormattable number)
+                {
+                    writer.WriteStartElement("v", SpreadsheetNamespace);
+                    writer.WriteString(number.ToString(null, CultureInfo.InvariantCulture));
+                    writer.WriteEndElement();
+                }
+                else
+                {
+                    writer.WriteAttributeString("t", "inlineStr");
+                    writer.WriteStartElement("is", SpreadsheetNamespace);
+                    writer.WriteElementString("t", SpreadsheetNamespace, value.ToString() ?? string.Empty);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement();
+        }
+
+        private static string ExcelColumnName(int columnNumber)
+        {
+            var name = string.Empty;
+            while (columnNumber > 0)
+            {
+                columnNumber--;
+                name = (char)('A' + columnNumber % 26) + name;
+                columnNumber /= 26;
+            }
+            return name;
         }
 
         private void gridColumnMenuItem_Click(object? sender, EventArgs e)
@@ -390,7 +615,17 @@ namespace SteamManager
                 filtered = filtered.Where(game => collectionAppIds.Contains(game.AppId));
             }
 
-            filtered = sortComboBox.SelectedIndex switch
+            var invalidHltbBounds = false;
+            var minHltbHours = ParseOptionalHoursFilter(hltbMinHoursTextBox.Text, ref invalidHltbBounds);
+            var maxHltbHours = ParseOptionalHoursFilter(hltbMaxHoursTextBox.Text, ref invalidHltbBounds);
+            if (minHltbHours is { } minimum)
+                filtered = filtered.Where(game => game.HltbMainHours is { } hours && hours >= minimum);
+            if (maxHltbHours is { } maximum)
+                filtered = filtered.Where(game => game.HltbMainHours is { } hours && hours <= maximum);
+
+            filtered = gridSortColumnName is not null
+                ? SortByGridColumn(filtered)
+                : sortComboBox.SelectedIndex switch
             {
                 1 => filtered.OrderByDescending(game => game.PlaytimeForever).ThenBy(game => game.Name),
                 2 => filtered.OrderBy(game => !game.PlaytimeKnown).ThenBy(game => game.PlaytimeForever).ThenBy(game => game.Name),
@@ -404,6 +639,10 @@ namespace SteamManager
             visibleGames = filtered.ToList();
             gamesGrid.DataSource = null;
             gamesGrid.DataSource = visibleGames;
+            foreach (DataGridViewColumn column in gamesGrid.Columns)
+                column.HeaderCell.SortGlyphDirection = column.Name == gridSortColumnName
+                    ? gridSortAscending ? SortOrder.Ascending : SortOrder.Descending
+                    : SortOrder.None;
             var summary = lastSyncTime is null
                 ? $"Showing {visibleGames.Count:N0} of {libraryGames.Count:N0} games."
                 : $"Showing {visibleGames.Count:N0} of {libraryGames.Count:N0} games. Synced {lastSyncTime.Value:dd/MM/yyyy HH:mm}.";
@@ -411,7 +650,49 @@ namespace SteamManager
                 summary += " Showing locally saved data.";
             if (howLongToBeatStore.LastBulkSearchAtUtc is { } lastHltbBatch)
                 summary += $" Last HLTB batch search: {lastHltbBatch.ToLocalTime():dd/MM/yyyy HH:mm}.";
+            if (invalidHltbBounds)
+                summary += " Enter valid numbers for the HLTB hour filters.";
             statusLabel.Text = string.IsNullOrWhiteSpace(syncNotice) ? summary : $"{summary} {syncNotice}";
+        }
+
+        private static double? ParseOptionalHoursFilter(string text, ref bool invalid)
+        {
+            var trimmed = text.Trim();
+            if (trimmed.Length == 0)
+                return null;
+
+            if ((double.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out var hours)
+                || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out hours))
+                && double.IsFinite(hours)
+                && hours >= 0)
+                return hours;
+
+            invalid = true;
+            return null;
+        }
+
+        private IEnumerable<SteamGame> SortByGridColumn(IEnumerable<SteamGame> games)
+        {
+            var ascending = gridSortAscending;
+            return gridSortColumnName switch
+            {
+                "gameNameColumn" => ascending
+                    ? games.OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+                    : games.OrderByDescending(game => game.Name, StringComparer.CurrentCultureIgnoreCase),
+                "sourceColumn" => ascending
+                    ? games.OrderBy(game => game.IsFamilyShared).ThenBy(game => game.Name)
+                    : games.OrderByDescending(game => game.IsFamilyShared).ThenBy(game => game.Name),
+                "playtimeColumn" => ascending
+                    ? games.OrderBy(game => !game.PlaytimeKnown).ThenBy(game => game.PlaytimeForever).ThenBy(game => game.Name)
+                    : games.OrderBy(game => !game.PlaytimeKnown).ThenByDescending(game => game.PlaytimeForever).ThenBy(game => game.Name),
+                "lastPlayedColumn" => ascending
+                    ? games.OrderBy(game => !game.PlaytimeKnown).ThenBy(game => game.RTimeLastPlayed).ThenBy(game => game.Name)
+                    : games.OrderBy(game => !game.PlaytimeKnown).ThenByDescending(game => game.RTimeLastPlayed).ThenBy(game => game.Name),
+                "hltbMainColumn" => ascending
+                    ? games.OrderBy(game => game.HltbMainHours is null).ThenBy(game => game.HltbMainHours).ThenBy(game => game.Name)
+                    : games.OrderBy(game => game.HltbMainHours is null).ThenByDescending(game => game.HltbMainHours).ThenBy(game => game.Name),
+                _ => games.OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+            };
         }
 
         private void randomGameButton_Click(object? sender, EventArgs e)

@@ -17,6 +17,7 @@ namespace SteamManager
         private System.Windows.Forms.Label pageTitleLabel;
         private System.Windows.Forms.Button syncButton;
         private System.Windows.Forms.Button columnOptionsButton;
+        private System.Windows.Forms.Button exportButton;
         private System.Windows.Forms.ContextMenuStrip columnMenu;
         private System.Windows.Forms.ToolStripMenuItem gameNameMenuItem;
         private System.Windows.Forms.ToolStripMenuItem sourceMenuItem;
@@ -31,6 +32,8 @@ namespace SteamManager
         private System.Windows.Forms.ComboBox playedFilterComboBox;
         private System.Windows.Forms.ComboBox collectionFilterComboBox;
         private System.Windows.Forms.ComboBox sortComboBox;
+        private System.Windows.Forms.TextBox hltbMinHoursTextBox;
+        private System.Windows.Forms.TextBox hltbMaxHoursTextBox;
         private System.Windows.Forms.Button randomGameButton;
         private System.Windows.Forms.Button hltbSearchButton;
         private System.Windows.Forms.Button bulkHltbSearchButton;
@@ -75,6 +78,7 @@ namespace SteamManager
             pageTitleLabel = new Label();
             syncButton = new Button();
             columnOptionsButton = new Button();
+            exportButton = new Button();
             columnMenu = new ContextMenuStrip(components);
             gameNameMenuItem = new ToolStripMenuItem();
             sourceMenuItem = new ToolStripMenuItem();
@@ -89,6 +93,8 @@ namespace SteamManager
             playedFilterComboBox = new ComboBox();
             collectionFilterComboBox = new ComboBox();
             sortComboBox = new ComboBox();
+            hltbMinHoursTextBox = new TextBox();
+            hltbMaxHoursTextBox = new TextBox();
             randomGameButton = new Button();
             hltbSearchButton = new Button();
             bulkHltbSearchButton = new Button();
@@ -266,6 +272,7 @@ namespace SteamManager
             headerPanel.BackColor = Color.FromArgb(15, 22, 32);
             headerPanel.Controls.Add(pageTitleLabel);
             headerPanel.Controls.Add(columnOptionsButton);
+            headerPanel.Controls.Add(exportButton);
             headerPanel.Controls.Add(syncButton);
             headerPanel.Dock = DockStyle.Top;
             headerPanel.Location = new Point(30, 22);
@@ -314,6 +321,20 @@ namespace SteamManager
             columnOptionsButton.Text = "Columns ▾";
             columnOptionsButton.UseVisualStyleBackColor = false;
             columnOptionsButton.Click += columnOptionsButton_Click;
+            // exportButton
+            exportButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            exportButton.BackColor = Color.FromArgb(29, 42, 57);
+            exportButton.FlatAppearance.BorderColor = Color.FromArgb(67, 90, 112);
+            exportButton.FlatStyle = FlatStyle.Flat;
+            exportButton.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+            exportButton.ForeColor = Color.FromArgb(232, 238, 245);
+            exportButton.Location = new Point(438, 8);
+            exportButton.Name = "exportButton";
+            exportButton.Size = new Size(136, 40);
+            exportButton.TabIndex = 3;
+            exportButton.Text = "Export to Excel";
+            exportButton.UseVisualStyleBackColor = false;
+            exportButton.Click += exportButton_Click;
             // columnMenu
             columnMenu.Items.AddRange(new ToolStripItem[] { gameNameMenuItem, sourceMenuItem, playtimeMenuItem, lastPlayedMenuItem, hltbMainMenuItem });
             columnMenu.Name = "columnMenu";
@@ -390,15 +411,18 @@ namespace SteamManager
             libraryToolbar.Controls.Add(sortComboBox, 3, 1);
             libraryToolbar.SetColumnSpan(sortComboBox, 2);
             libraryToolbar.Controls.Add(randomGameButton, 4, 0);
+            libraryToolbar.Controls.Add(hltbMinHoursTextBox, 0, 2);
+            libraryToolbar.Controls.Add(hltbMaxHoursTextBox, 1, 2);
             libraryToolbar.Dock = DockStyle.Top;
             libraryToolbar.Location = new Point(0, 0);
             libraryToolbar.Name = "libraryToolbar";
             libraryToolbar.Padding = new Padding(0, 0, 0, 8);
-            libraryToolbar.RowCount = 3;
+            libraryToolbar.RowCount = 4;
             libraryToolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             libraryToolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             libraryToolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-            libraryToolbar.Size = new Size(874, 128);
+            libraryToolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+            libraryToolbar.Size = new Size(874, 168);
             libraryToolbar.TabIndex = 1;
             // 
             // searchTextBox
@@ -476,6 +500,34 @@ namespace SteamManager
             sortComboBox.TabIndex = 2;
             sortComboBox.SelectedIndex = 0;
             sortComboBox.SelectedIndexChanged += libraryFilters_Changed;
+            //
+            // hltbMinHoursTextBox
+            //
+            hltbMinHoursTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            hltbMinHoursTextBox.BackColor = Color.FromArgb(29, 42, 57);
+            hltbMinHoursTextBox.BorderStyle = BorderStyle.FixedSingle;
+            hltbMinHoursTextBox.ForeColor = Color.FromArgb(232, 238, 245);
+            hltbMinHoursTextBox.Location = new Point(3, 89);
+            hltbMinHoursTextBox.Margin = new Padding(3, 2, 8, 2);
+            hltbMinHoursTextBox.Name = "hltbMinHoursTextBox";
+            hltbMinHoursTextBox.PlaceholderText = "HLTB min hours";
+            hltbMinHoursTextBox.Size = new Size(190, 23);
+            hltbMinHoursTextBox.TabIndex = 3;
+            hltbMinHoursTextBox.TextChanged += libraryFilters_Changed;
+            //
+            // hltbMaxHoursTextBox
+            //
+            hltbMaxHoursTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            hltbMaxHoursTextBox.BackColor = Color.FromArgb(29, 42, 57);
+            hltbMaxHoursTextBox.BorderStyle = BorderStyle.FixedSingle;
+            hltbMaxHoursTextBox.ForeColor = Color.FromArgb(232, 238, 245);
+            hltbMaxHoursTextBox.Location = new Point(204, 89);
+            hltbMaxHoursTextBox.Margin = new Padding(8, 2, 8, 2);
+            hltbMaxHoursTextBox.Name = "hltbMaxHoursTextBox";
+            hltbMaxHoursTextBox.PlaceholderText = "HLTB max hours";
+            hltbMaxHoursTextBox.Size = new Size(131, 23);
+            hltbMaxHoursTextBox.TabIndex = 4;
+            hltbMaxHoursTextBox.TextChanged += libraryFilters_Changed;
             // 
             // randomGameButton
             // 
@@ -500,14 +552,14 @@ namespace SteamManager
             hltbSearchButton.FlatAppearance.BorderColor = Color.FromArgb(67, 90, 112);
             hltbSearchButton.FlatStyle = FlatStyle.Flat;
             hltbSearchButton.ForeColor = Color.FromArgb(232, 238, 245);
-            hltbSearchButton.Location = new Point(3, 86);
+            hltbSearchButton.Location = new Point(3, 126);
             hltbSearchButton.Name = "hltbSearchButton";
             hltbSearchButton.Size = new Size(270, 30);
             hltbSearchButton.TabIndex = 4;
             hltbSearchButton.Text = "Search HowLongToBeat";
             hltbSearchButton.UseVisualStyleBackColor = false;
             hltbSearchButton.Click += hltbSearchButton_Click;
-            libraryToolbar.Controls.Add(hltbSearchButton, 0, 2);
+            libraryToolbar.Controls.Add(hltbSearchButton, 0, 3);
             // bulkHltbSearchButton
             bulkHltbSearchButton.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             bulkHltbSearchButton.BackColor = Color.FromArgb(42, 111, 153);
@@ -516,24 +568,24 @@ namespace SteamManager
             bulkHltbSearchButton.FlatStyle = FlatStyle.Flat;
             bulkHltbSearchButton.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
             bulkHltbSearchButton.ForeColor = Color.White;
-            bulkHltbSearchButton.Location = new Point(289, 86);
+            bulkHltbSearchButton.Location = new Point(289, 126);
             bulkHltbSearchButton.Name = "bulkHltbSearchButton";
             bulkHltbSearchButton.Size = new Size(185, 30);
             bulkHltbSearchButton.TabIndex = 5;
             bulkHltbSearchButton.Text = "Search all games on HLTB";
             bulkHltbSearchButton.UseVisualStyleBackColor = false;
             bulkHltbSearchButton.Click += bulkHltbSearchButton_Click;
-            libraryToolbar.Controls.Add(bulkHltbSearchButton, 1, 2);
+            libraryToolbar.Controls.Add(bulkHltbSearchButton, 1, 3);
             // hltbHintLabel
             hltbHintLabel.Anchor = AnchorStyles.Left;
             hltbHintLabel.AutoSize = true;
             hltbHintLabel.ForeColor = Color.FromArgb(160, 177, 194);
-            hltbHintLabel.Location = new Point(495, 94);
+            hltbHintLabel.Location = new Point(495, 134);
             hltbHintLabel.Name = "hltbHintLabel";
             hltbHintLabel.Size = new Size(375, 15);
             hltbHintLabel.TabIndex = 5;
             hltbHintLabel.Text = "Results are cached; previously searched games are not queried again.";
-            libraryToolbar.Controls.Add(hltbHintLabel, 2, 2);
+            libraryToolbar.Controls.Add(hltbHintLabel, 2, 3);
             libraryToolbar.SetColumnSpan(hltbHintLabel, 3);
             // 
             // gamesGrid
@@ -568,6 +620,7 @@ namespace SteamManager
             gamesGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             gamesGrid.Size = new Size(874, 578);
             gamesGrid.TabIndex = 0;
+            gamesGrid.ColumnHeaderMouseClick += gamesGrid_ColumnHeaderMouseClick;
             // 
             // gameNameColumn
             // 
@@ -576,6 +629,7 @@ namespace SteamManager
             gameNameColumn.HeaderText = "Game";
             gameNameColumn.Name = "gameNameColumn";
             gameNameColumn.ReadOnly = true;
+            gameNameColumn.SortMode = DataGridViewColumnSortMode.Programmatic;
             // 
             // sourceColumn
             // 
@@ -584,6 +638,7 @@ namespace SteamManager
             sourceColumn.HeaderText = "Source";
             sourceColumn.Name = "sourceColumn";
             sourceColumn.ReadOnly = true;
+            sourceColumn.SortMode = DataGridViewColumnSortMode.Programmatic;
             // 
             // playtimeColumn
             // 
@@ -592,6 +647,7 @@ namespace SteamManager
             playtimeColumn.HeaderText = "Playtime";
             playtimeColumn.Name = "playtimeColumn";
             playtimeColumn.ReadOnly = true;
+            playtimeColumn.SortMode = DataGridViewColumnSortMode.Programmatic;
             // 
             // lastPlayedColumn
             // 
@@ -600,12 +656,14 @@ namespace SteamManager
             lastPlayedColumn.HeaderText = "Last played";
             lastPlayedColumn.Name = "lastPlayedColumn";
             lastPlayedColumn.ReadOnly = true;
+            lastPlayedColumn.SortMode = DataGridViewColumnSortMode.Programmatic;
             // hltbMainColumn
             hltbMainColumn.DataPropertyName = "HltbMainDisplay";
             hltbMainColumn.FillWeight = 15F;
             hltbMainColumn.HeaderText = "HLTB main story";
             hltbMainColumn.Name = "hltbMainColumn";
             hltbMainColumn.ReadOnly = true;
+            hltbMainColumn.SortMode = DataGridViewColumnSortMode.Programmatic;
             // 
             // collectionsPage
             // 
