@@ -1,0 +1,25 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET build output
+**/bin/
+**/obj/
+**/validation-build/
+
+# Local settings, credentials, library snapshots, and caches
+settings.json
+steam-library.json
+steam-collections.json
+hidden-grid-columns.json
+howlongtobeat-cache*.json
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+
