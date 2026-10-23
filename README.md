@@ -10,6 +10,7 @@ This is an experimental personal project created with the assistance of AI. It i
 - Optionally include games shared through Steam Families using a temporary Steam session token.
 - Import Steam collections from the local Steam client files.
 - Filter the library by name, source, playtime, collection, and HowLongToBeat main story hours; sort it and pick a random game from the filtered results.
+- View library overview indicators for total games, games with recorded playtime, Steam Families games, and total recorded playtime.
 - Sort the library by clicking any visible grid column header, and export the current grid to an Excel workbook (`.xlsx`).
 - Look up HowLongToBeat results for one game or process the library in a resumable batch.
 - Cache library, collection, column preference, and HowLongToBeat data locally so they are retained between runs.
@@ -18,6 +19,15 @@ This is an experimental personal project created with the assistance of AI. It i
 Wishlist import and price tracking through IsThereAnyDeal are not implemented yet. The optional IsThereAnyDeal API key and country settings are present in the Settings window for future development; the application does not currently use them.
 
 ## Library filters, sorting, and export
+
+The Library page shows four overview indicators above the game list:
+
+- **Games in library** counts all games in the synced library.
+- **Played** counts games with known playtime greater than zero.
+- **Family shared** counts games shared through Steam Families.
+- **Total playtime** adds the recorded playtime for games whose playtime is available.
+
+These indicators summarize the full synced library and do not change when filters are applied. Total playtime is rounded to one decimal hour below 1,000 hours and to a whole hour from 1,000 hours onward.
 
 The Library page has optional **HLTB min hours** and **HLTB max hours** fields. These limits use the HowLongToBeat **main story** estimate shown in the grid. Leave either field empty to omit that limit. Decimal values can use a comma or a period. When either limit is set, games without a main story estimate are excluded.
 

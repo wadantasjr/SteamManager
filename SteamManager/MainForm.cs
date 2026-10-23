@@ -304,6 +304,7 @@ namespace SteamManager
             if (page == "Prices") pricesPage.BringToFront();
 
             pageTitleLabel.Text = page;
+            UpdateNavigationAppearance(page);
             syncButton.Visible = page == "Library";
             columnOptionsButton.Visible = page == "Library";
             exportButton.Visible = page == "Library";
@@ -319,6 +320,26 @@ namespace SteamManager
                         ? "Ready to sync your Steam library."
                         : "Set your Steam API key and SteamID64 to import your games.";
                 }
+            }
+        }
+
+        private void UpdateNavigationAppearance(string page)
+        {
+            var selectedBackColor = Color.FromArgb(35, 49, 65);
+            var buttons = new (Button Button, string Page)[]
+            {
+                (libraryButton, "Library"),
+                (collectionsButton, "Collections"),
+                (wishlistButton, "Wishlist"),
+                (pricesButton, "Prices")
+            };
+            foreach (var (button, buttonPage) in buttons)
+            {
+                var selected = buttonPage == page;
+                button.BackColor = selected ? selectedBackColor : Color.Transparent;
+                button.ForeColor = selected ? Color.FromArgb(102, 192, 244) : Color.FromArgb(225, 234, 243);
+                button.Font = new Font("Segoe UI Semibold", 9F, selected ? FontStyle.Bold : FontStyle.Regular);
+                button.UseVisualStyleBackColor = false;
             }
         }
 
@@ -637,6 +658,7 @@ namespace SteamManager
             };
 
             visibleGames = filtered.ToList();
+            UpdateLibraryMetrics();
             gamesGrid.DataSource = null;
             gamesGrid.DataSource = visibleGames;
             foreach (DataGridViewColumn column in gamesGrid.Columns)
@@ -653,6 +675,21 @@ namespace SteamManager
             if (invalidHltbBounds)
                 summary += " Enter valid numbers for the HLTB hour filters.";
             statusLabel.Text = string.IsNullOrWhiteSpace(syncNotice) ? summary : $"{summary} {syncNotice}";
+        }
+
+        private void UpdateLibraryMetrics()
+        {
+            totalGamesValueLabel.Text = libraryGames.Count.ToString("N0");
+            playedGamesValueLabel.Text = libraryGames.Count(game => game.PlaytimeKnown && game.PlaytimeForever > 0).ToString("N0");
+            familyGamesValueLabel.Text = libraryGames.Count(game => game.IsFamilyShared).ToString("N0");
+
+            var knownPlaytimeMinutes = libraryGames
+                .Where(game => game.PlaytimeKnown)
+                .Sum(game => (long)game.PlaytimeForever);
+            var totalHours = knownPlaytimeMinutes / 60d;
+            totalPlaytimeValueLabel.Text = totalHours >= 1000
+                ? $"{totalHours:N0} h"
+                : $"{totalHours:N1} h";
         }
 
         private static double? ParseOptionalHoursFilter(string text, ref bool invalid)
